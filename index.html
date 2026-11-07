@@ -41,7 +41,7 @@
         
         .input-group { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
         .input-group input, .input-group textarea {
-            padding: 8px; border: 2px solid #b7a48f; border-radius: 8px; font-size: 0.85rem;
+            padding: 8px; border: 2px solid #b7a48f; border-radius: 8px; font-size: 0.9rem;
             background: #fffcf7; color: #3e2f1f; outline: none; transition: border-color 0.2s;
             font-family: monospace;
         }
@@ -121,7 +121,8 @@
             let pendingConnectFromId = null;
             let canvasWidth = 1200, canvasHeight = 800; 
             const GRID_SIZE = 40;
-            const DEFAULT_W = 70, DEFAULT_H = 50;
+            // 稍微增大默认形状尺寸以匹配变大的字号
+            const DEFAULT_W = 80, DEFAULT_H = 60; 
             let isDragging = false;
             let dragOffsetX = 0, dragOffsetY = 0;
 
@@ -250,6 +251,7 @@
                 const fromJunctions = new Map();
                 const toJunctions = new Map();
 
+                // 起点分叉点：动态计算，绝不突进目标
                 fromMap.forEach((conns, fromId) => {
                     const from = getShapeById(fromId);
                     if (!from) return;
@@ -257,12 +259,14 @@
                     if (vTargets.length > 0) {
                         let minTargetTopY = Infinity;
                         vTargets.forEach(t => { if (t.y < minTargetTopY) minTargetTopY = t.y; });
-                        const junctionY = Math.min(minTargetTopY - 40, from.y + from.h + 50);
+                        // 在起点和最近终点之间找中间点，但如果离得太近，就取中点
+                        const junctionY = from.y + from.h + (minTargetTopY - (from.y + from.h)) * 0.4; 
                         fromJunctions.set(fromId, junctionY);
                         drawnLines.push({ type: 'v', x: from.x + from.w/2, y1: from.y + from.h, y2: junctionY });
                     }
                 });
 
+                // 终点汇合点：去掉强制 Math.max，完全基于中点
                 toMap.forEach((conns, toId) => {
                     const to = getShapeById(toId);
                     if (!to) return;
@@ -270,7 +274,8 @@
                     if (vSources.length > 0) {
                         let maxSourceBottomY = -Infinity;
                         vSources.forEach(f => { if (f.y + f.h > maxSourceBottomY) maxSourceBottomY = f.y + f.h; });
-                        const junctionY = Math.max(maxSourceBottomY + 30, to.y - 50);
+                        // 取最深的源节点和终点之间的中间位置偏下
+                        const junctionY = maxSourceBottomY + (to.y - maxSourceBottomY) * 0.6;
                         toJunctions.set(toId, junctionY);
                     }
                 });
@@ -325,6 +330,7 @@
                                 context.beginPath(); context.moveTo(fromCenterX, laneY); context.lineTo(targetTopX, laneY); context.stroke();
                             }
 
+                            // 动态终点判断，如果水平线在汇合点下方，则直接连到汇聚点
                             const finalY = (toJY && laneY < toJY) ? toJY : targetTopY;
                             context.beginPath(); context.moveTo(targetTopX, laneY); context.lineTo(targetTopX, finalY); context.stroke();
 
@@ -404,7 +410,8 @@
                     context.lineWidth = (selectedShapeId === shape.id && !isExport) ? 2.5 : 1.8; 
                     context.stroke();
 
-                    context.font = 'bold 14px system-ui, sans-serif';
+                    // 字号改大，加粗
+                    context.font = 'bold 16px system-ui, sans-serif';
                     context.fillStyle = colors.text; context.textAlign = 'center'; context.textBaseline = 'middle';
                     context.save(); context.translate(cx, cy); context.rotate(shape.rotation);
                     if (shape.label) context.fillText(shape.label, 0, shape.type === 'tri' ? 6 : 0);
@@ -489,7 +496,7 @@
                     }
                 }
 
-                const startY = 80; const layerSpacingY = 150; const itemSpacingX = 120; const intraGroupSpacing = 30; const nodeW = DEFAULT_W + 20;
+                const startY = 80; const layerSpacingY = 160; const itemSpacingX = 120; const intraGroupSpacing = 30; const nodeW = DEFAULT_W + 20;
 
                 layers.forEach((roots, li) => {
                     const y = startY + li * layerSpacingY;
@@ -571,7 +578,7 @@
                     parts.forEach(p => {
                         const label = p.trim();
                         if (label && !nodeMap.has(label)) {
-                            // 核心修改：仅 H、G、K 开头且后跟数字的才识别为三角形（遗迹）
+                            // 仅 H、G、K 开头且后跟数字的才识别为三角形（遗迹）
                             const isTri = /^[HGK]\d+$/i.test(label);
                             nodeMap.set(label, { id: generateId(), type: isTri ? 'tri' : 'rect', x: 0, y: 0, w: DEFAULT_W, h: DEFAULT_H, rotation: 0, label: label });
                         }
