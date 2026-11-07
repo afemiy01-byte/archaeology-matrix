@@ -57,7 +57,7 @@
         <div class="input-group">
             <p>文本一键生成</p>
             <textarea id="bulkInput" placeholder="示例：&#10;1-2-3-4-5-6&#10;2-4&#10;2-5&#10;2-H1-3&#10;2-G2-3&#10;2-F1-4"></textarea>
-            <button class="btn btn-small" id="generateBtn" style="justify-content:center;">  生成（后请手动拖拽调整）</button>
+            <button class="btn btn-small" id="generateBtn" style="justify-content:center;"> 生成（后请手动拖拽调整）</button>
         </div>
 
         <div class="separator"></div>
@@ -90,8 +90,6 @@
             <a id="downloadFallback" style="display:none; text-align:center; font-size:0.75rem; color:#7a9e6b; margin-top:4px; text-decoration:underline;">⚠️ 点击此处保存图片</a>
             <button class="btn btn-small" id="clearCanvasBtn" style="margin-top:4px;"><span class="icon">🧹</span> 清空画布</button>
         </div>
-
-       
 
         <div class="copyright">© AFEMIY 2026</div>
     </div>
@@ -310,17 +308,26 @@
                             });
                             intersections = [...new Set(intersections)].sort((a,b) => a-b);
 
+                            // ======== 此处替换为圆弧拱形 ========
                             let startX = fromCenterX;
                             if (intersections.length > 0) {
                                 intersections.forEach(ix => {
-                                    context.beginPath(); context.moveTo(startX, laneY); context.lineTo(ix - 8, laneY); context.stroke();
-                                    context.beginPath(); context.moveTo(ix - 8, laneY); context.lineTo(ix - 8, laneY - 8); context.lineTo(ix + 8, laneY - 8); context.lineTo(ix + 8, laneY); context.stroke();
-                                    startX = ix + 8;
+                                    const bridgeRadius = 8;
+                                    // 直线到桥头
+                                    context.beginPath(); context.moveTo(startX, laneY); context.lineTo(ix - bridgeRadius, laneY); context.stroke();
+                                    // 画平滑的圆弧半圆
+                                    context.beginPath(); 
+                                    context.moveTo(ix - bridgeRadius, laneY); 
+                                    context.arc(ix, laneY, bridgeRadius, Math.PI, 0, true); 
+                                    context.stroke();
+                                    // 更新起点
+                                    startX = ix + bridgeRadius;
                                 });
                                 context.beginPath(); context.moveTo(startX, laneY); context.lineTo(targetTopX, laneY); context.stroke();
                             } else {
                                 context.beginPath(); context.moveTo(fromCenterX, laneY); context.lineTo(targetTopX, laneY); context.stroke();
                             }
+                            // ===================================
 
                             const finalY = (toJY && laneY < toJY) ? toJY : targetTopY;
                             context.beginPath(); context.moveTo(targetTopX, laneY); context.lineTo(targetTopX, finalY); context.stroke();
@@ -572,6 +579,7 @@
                         const label = p.trim();
                         if (label && !nodeMap.has(label)) {
                             let type = 'rect'; // 默认矩形
+                            
                             // 规则1：纯数字（1 或 ①），识别为圆形
                             if (/^\d+$/.test(label) || /^[①-⑳]$/.test(label)) {
                                 type = 'circle';
@@ -584,6 +592,7 @@
                             else if (/^[FQ]\d+$/i.test(label)) {
                                 type = 'rect';
                             }
+                            
                             nodeMap.set(label, { id: generateId(), type: type, x: 0, y: 0, w: DEFAULT_W, h: DEFAULT_H, rotation: 0, label: label });
                         }
                     });
@@ -632,7 +641,6 @@
                 }
 
                 if (activeTool === 'rect' || activeTool === 'tri' || activeTool === 'circle') {
-                    // 如果已经选中了形状，这里的作用是把选中的形状改掉，而不是新建
                     if (selectedShapeId) {
                         const shape = getShapeById(selectedShapeId);
                         if (shape) {
@@ -642,7 +650,6 @@
                             return;
                         }
                     }
-                    // 否则新建
                     const shape = { id: generateId(), type: activeTool, x: Math.round((mx - DEFAULT_W/2) / 10) * 10, y: Math.round((my - DEFAULT_H/2) / 10) * 10, w: DEFAULT_W, h: DEFAULT_H, rotation: 0, label: '' };
                     shapes.push(shape); selectedShapeId = shape.id; syncInput();
                     setStatus(`已添加${activeTool === 'rect' ? '矩形' : activeTool === 'tri' ? '三角形' : '圆形'}`);
@@ -771,7 +778,6 @@
 
                 document.getElementById('generateBtn').addEventListener('click', generateFromText);
                 
-                // 左侧按钮点击：如果已有选中的形状，则替换类型；否则激活工具以待新建
                 document.getElementById('addRectBtn').addEventListener('click', () => { 
                     if (selectedShapeId) {
                         getShapeById(selectedShapeId).type = 'rect';
