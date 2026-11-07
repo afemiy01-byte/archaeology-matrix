@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>考古系络图 </title>
+    <title>考古系络图</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; font-family: system-ui, 'Segoe UI', sans-serif; }
         body { display: flex; height: 100vh; background: #f5f3f0; overflow: hidden; }
@@ -56,7 +56,7 @@
         
         <div class="input-group">
             <p>文本一键生成</p>
-            <textarea id="bulkInput" placeholder="示例：&#10;1-2-3-4-5-6&#10;2-4&#10;2-5&#10;2-H1-3&#10;2-H2-3&#10;2-H3-4"></textarea>
+            <textarea id="bulkInput" placeholder="示例：&#10;1-2-3-4-5-6&#10;2-4&#10;2-5&#10;2-H1-3&#10;2-G2-3&#10;2-K3-4"></textarea>
             <button class="btn btn-small" id="generateBtn" style="justify-content:center;">✨ 智能解析并生成</button>
         </div>
 
@@ -97,7 +97,6 @@
             📥 导出的PNG为纯白底黑线
         </div>
 
-        <!-- 新增：版权信息 -->
         <div class="copyright">© AFEMIY 2026</div>
     </div>
 
@@ -152,7 +151,6 @@
                 if (activeTool === 'deleteConn') document.getElementById('deleteConnectionBtn').classList.add('active');
             }
 
-            // 动态扩展画幅：增加容差，避免拖动时频繁抖动
             function updateCanvasSize() {
                 let maxX = 800, maxY = 600;
                 shapes.forEach(s => {
@@ -163,7 +161,6 @@
                 const targetWidth = Math.max(maxX, canvasContainer.clientWidth);
                 const targetHeight = Math.max(maxY, canvasContainer.clientHeight);
 
-                // 只有当需要缩小时超过了 300px 的阈值，或者需要放大时，才重新调整画布，降低灵敏度
                 if (targetWidth > canvasWidth || targetHeight > canvasHeight ||
                     (canvasWidth - targetWidth > 300) || (canvasHeight - targetHeight > 300)) {
                     
@@ -210,7 +207,6 @@
                 // ================= 画连线 =================
                 const drawnLines = []; 
 
-                // 等号
                 connections.filter(c => c.type === 'equal').forEach(conn => {
                     const from = getShapeById(conn.fromId), to = getShapeById(conn.toId);
                     if (!from || !to) return;
@@ -240,7 +236,6 @@
                     context.restore();
                 });
 
-                // 箭头
                 const arrows = connections.filter(c => c.type === 'arrow');
                 
                 const fromMap = new Map(); 
@@ -576,7 +571,8 @@
                     parts.forEach(p => {
                         const label = p.trim();
                         if (label && !nodeMap.has(label)) {
-                            const isTri = /H|灰坑|坑|[a-zA-Z]/.test(label);
+                            // 核心修改：仅 H、G、K 开头且后跟数字的才识别为三角形（遗迹）
+                            const isTri = /^[HGK]\d+$/i.test(label);
                             nodeMap.set(label, { id: generateId(), type: isTri ? 'tri' : 'rect', x: 0, y: 0, w: DEFAULT_W, h: DEFAULT_H, rotation: 0, label: label });
                         }
                     });
