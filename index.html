@@ -52,12 +52,12 @@
 </head>
 <body>
     <div class="sidebar">
-        <h2><i>🏺</i> 考古系络图</h2>
+        <h2><i></i> 考古系络图</h2>
         
         <div class="input-group">
             <p>文本一键生成</p>
             <textarea id="bulkInput" placeholder="示例：&#10;1-2-3-4-5-6&#10;2-4&#10;2-5&#10;2-H1-3&#10;2-G2-3&#10;2-F1-4"></textarea>
-            <button class="btn btn-small" id="generateBtn" style="justify-content:center;">✨ 智能解析并生成</button>
+            <button class="btn btn-small" id="generateBtn" style="justify-content:center;"> 智能生成（后请手动调整）</button>
         </div>
 
         <div class="separator"></div>
@@ -85,17 +85,13 @@
             <p>操作与导出</p>
             <button class="btn btn-small" id="deleteShapeBtn"><span class="icon">🗑️</span> 删除形状</button>
             <button class="btn btn-small btn-danger" id="deleteConnectionBtn"><span class="icon">🔗</span> 删除连线</button>
-            <button class="btn btn-small" id="autoLayoutBtn"><span class="icon">⊞</span> 智能分层排版</button>
+            <button class="btn btn-small" id="autoLayoutBtn"><span class="icon">⊞</span> 智能排版（不太智能）</button>
             <button class="btn btn-small" id="exportBtn" style="margin-top:8px; background:#e2f0d9; border-color:#7a9e6b; box-shadow:0 2px 0 #7a9e6b; color:#2e4d22;"><span class="icon">📥</span> 导出黑白PNG</button>
             <a id="downloadFallback" style="display:none; text-align:center; font-size:0.75rem; color:#7a9e6b; margin-top:4px; text-decoration:underline;">⚠️ 点击此处保存图片</a>
             <button class="btn btn-small" id="clearCanvasBtn" style="margin-top:4px;"><span class="icon">🧹</span> 清空画布</button>
         </div>
 
-        <div class="info-badge">
-            ⚡ 单击选中形状后，点左侧按钮可换形状<br>
-            → 箭头表示上层(晚)叠压下层(早)<br>
-            ＝ 等号表示同时/相等关系
-        </div>
+       
 
         <div class="copyright">© AFEMIY 2026</div>
     </div>
