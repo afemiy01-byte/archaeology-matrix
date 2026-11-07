@@ -56,15 +56,16 @@
         
         <div class="input-group">
             <p>文本一键生成</p>
-            <textarea id="bulkInput" placeholder="示例：&#10;1-2-3-4-5-6&#10;2-4&#10;2-5&#10;2-H1-3&#10;2-G2-3&#10;2-K3-4"></textarea>
+            <textarea id="bulkInput" placeholder="示例：&#10;1-2-3-4-5-6&#10;2-4&#10;2-5&#10;2-H1-3&#10;2-G2-3&#10;2-F1-4"></textarea>
             <button class="btn btn-small" id="generateBtn" style="justify-content:center;">✨ 智能解析并生成</button>
         </div>
 
         <div class="separator"></div>
         <div class="tool-group">
-            <p>手动添加</p>
-            <button class="btn" id="addRectBtn"><span class="icon">▭</span> 矩形</button>
+            <p>添加/更改形状</p>
+            <button class="btn" id="addRectBtn"><span class="icon">▭</span> 矩形 / 方形</button>
             <button class="btn" id="addTriBtn"><span class="icon">△</span> 三角形</button>
+            <button class="btn" id="addCircleBtn"><span class="icon">○</span> 圆形</button>
         </div>
 
         <div class="input-group">
@@ -91,10 +92,9 @@
         </div>
 
         <div class="info-badge">
-            ⚡ 单击选中，拖拽移动<br>
+            ⚡ 单击选中形状后，点左侧按钮可换形状<br>
             → 箭头表示上层(晚)叠压下层(早)<br>
-            ＝ 等号表示同时/相等关系<br>
-            📥 导出的PNG为纯白底黑线
+            ＝ 等号表示同时/相等关系
         </div>
 
         <div class="copyright">© AFEMIY 2026</div>
@@ -121,7 +121,6 @@
             let pendingConnectFromId = null;
             let canvasWidth = 1200, canvasHeight = 800; 
             const GRID_SIZE = 40;
-            // 稍微增大默认形状尺寸以匹配变大的字号
             const DEFAULT_W = 80, DEFAULT_H = 60; 
             let isDragging = false;
             let dragOffsetX = 0, dragOffsetY = 0;
@@ -147,6 +146,7 @@
                 document.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
                 if (activeTool === 'rect') document.getElementById('addRectBtn').classList.add('active');
                 if (activeTool === 'tri') document.getElementById('addTriBtn').classList.add('active');
+                if (activeTool === 'circle') document.getElementById('addCircleBtn').classList.add('active');
                 if (activeTool === 'arrow') document.getElementById('addArrowBtn').classList.add('active');
                 if (activeTool === 'equal') document.getElementById('addEqualBtn').classList.add('active');
                 if (activeTool === 'deleteConn') document.getElementById('deleteConnectionBtn').classList.add('active');
@@ -251,7 +251,6 @@
                 const fromJunctions = new Map();
                 const toJunctions = new Map();
 
-                // 起点分叉点：动态计算，绝不突进目标
                 fromMap.forEach((conns, fromId) => {
                     const from = getShapeById(fromId);
                     if (!from) return;
@@ -259,14 +258,12 @@
                     if (vTargets.length > 0) {
                         let minTargetTopY = Infinity;
                         vTargets.forEach(t => { if (t.y < minTargetTopY) minTargetTopY = t.y; });
-                        // 在起点和最近终点之间找中间点，但如果离得太近，就取中点
                         const junctionY = from.y + from.h + (minTargetTopY - (from.y + from.h)) * 0.4; 
                         fromJunctions.set(fromId, junctionY);
                         drawnLines.push({ type: 'v', x: from.x + from.w/2, y1: from.y + from.h, y2: junctionY });
                     }
                 });
 
-                // 终点汇合点：去掉强制 Math.max，完全基于中点
                 toMap.forEach((conns, toId) => {
                     const to = getShapeById(toId);
                     if (!to) return;
@@ -274,7 +271,6 @@
                     if (vSources.length > 0) {
                         let maxSourceBottomY = -Infinity;
                         vSources.forEach(f => { if (f.y + f.h > maxSourceBottomY) maxSourceBottomY = f.y + f.h; });
-                        // 取最深的源节点和终点之间的中间位置偏下
                         const junctionY = maxSourceBottomY + (to.y - maxSourceBottomY) * 0.6;
                         toJunctions.set(toId, junctionY);
                     }
@@ -330,7 +326,6 @@
                                 context.beginPath(); context.moveTo(fromCenterX, laneY); context.lineTo(targetTopX, laneY); context.stroke();
                             }
 
-                            // 动态终点判断，如果水平线在汇合点下方，则直接连到汇聚点
                             const finalY = (toJY && laneY < toJY) ? toJY : targetTopY;
                             context.beginPath(); context.moveTo(targetTopX, laneY); context.lineTo(targetTopX, finalY); context.stroke();
 
@@ -397,12 +392,15 @@
                     context.translate(cx, cy); context.rotate(shape.rotation); context.translate(-cx, -cy);
                     
                     context.beginPath();
-                    if (shape.type === 'rect') context.rect(shape.x, shape.y, shape.w, shape.h);
-                    else {
+                    if (shape.type === 'rect') {
+                        context.rect(shape.x, shape.y, shape.w, shape.h);
+                    } else if (shape.type === 'tri') {
                         context.moveTo(shape.x + shape.w/2, shape.y);
                         context.lineTo(shape.x, shape.y + shape.h);
                         context.lineTo(shape.x + shape.w, shape.y + shape.h);
                         context.closePath();
+                    } else if (shape.type === 'circle') {
+                        context.arc(shape.x + shape.w/2, shape.y + shape.h/2, Math.min(shape.w, shape.h)/2, 0, Math.PI * 2);
                     }
                     
                     context.fillStyle = colors.shapeFill; context.fill();
@@ -410,7 +408,6 @@
                     context.lineWidth = (selectedShapeId === shape.id && !isExport) ? 2.5 : 1.8; 
                     context.stroke();
 
-                    // 字号改大，加粗
                     context.font = 'bold 16px system-ui, sans-serif';
                     context.fillStyle = colors.text; context.textAlign = 'center'; context.textBaseline = 'middle';
                     context.save(); context.translate(cx, cy); context.rotate(shape.rotation);
@@ -578,9 +575,20 @@
                     parts.forEach(p => {
                         const label = p.trim();
                         if (label && !nodeMap.has(label)) {
-                            // 仅 H、G、K 开头且后跟数字的才识别为三角形（遗迹）
-                            const isTri = /^[HGK]\d+$/i.test(label);
-                            nodeMap.set(label, { id: generateId(), type: isTri ? 'tri' : 'rect', x: 0, y: 0, w: DEFAULT_W, h: DEFAULT_H, rotation: 0, label: label });
+                            let type = 'rect'; // 默认矩形
+                            // 规则1：纯数字（1 或 ①），识别为圆形
+                            if (/^\d+$/.test(label) || /^[①-⑳]$/.test(label)) {
+                                type = 'circle';
+                            }
+                            // 规则2：H、K、G 开头+数字，识别为三角形
+                            else if (/^[HKG]\d+$/i.test(label)) {
+                                type = 'tri';
+                            }
+                            // 规则3：F、Q 开头+数字，识别为方形
+                            else if (/^[FQ]\d+$/i.test(label)) {
+                                type = 'rect';
+                            }
+                            nodeMap.set(label, { id: generateId(), type: type, x: 0, y: 0, w: DEFAULT_W, h: DEFAULT_H, rotation: 0, label: label });
                         }
                     });
                 });
@@ -627,10 +635,21 @@
                     return;
                 }
 
-                if (activeTool === 'rect' || activeTool === 'tri') {
-                    const shape = { id: generateId(), type: activeTool === 'rect' ? 'rect' : 'tri', x: Math.round((mx - DEFAULT_W/2) / 10) * 10, y: Math.round((my - DEFAULT_H/2) / 10) * 10, w: DEFAULT_W, h: DEFAULT_H, rotation: 0, label: '' };
+                if (activeTool === 'rect' || activeTool === 'tri' || activeTool === 'circle') {
+                    // 如果已经选中了形状，这里的作用是把选中的形状改掉，而不是新建
+                    if (selectedShapeId) {
+                        const shape = getShapeById(selectedShapeId);
+                        if (shape) {
+                            shape.type = activeTool;
+                            setStatus(`已将选中形状更改为${activeTool === 'rect' ? '矩形' : activeTool === 'tri' ? '三角形' : '圆形'}`);
+                            activeTool = 'select'; resetToolHighlight(); draw();
+                            return;
+                        }
+                    }
+                    // 否则新建
+                    const shape = { id: generateId(), type: activeTool, x: Math.round((mx - DEFAULT_W/2) / 10) * 10, y: Math.round((my - DEFAULT_H/2) / 10) * 10, w: DEFAULT_W, h: DEFAULT_H, rotation: 0, label: '' };
                     shapes.push(shape); selectedShapeId = shape.id; syncInput();
-                    setStatus(`已添加${activeTool === 'rect' ? '矩形' : '三角形'}`);
+                    setStatus(`已添加${activeTool === 'rect' ? '矩形' : activeTool === 'tri' ? '三角形' : '圆形'}`);
                     activeTool = 'select'; resetToolHighlight(); 
                     updateCanvasSize();
                     return;
@@ -755,8 +774,33 @@
                 });
 
                 document.getElementById('generateBtn').addEventListener('click', generateFromText);
-                document.getElementById('addRectBtn').addEventListener('click', () => { activeTool = 'rect'; resetToolHighlight(); pendingConnectFromId = null; selectedShapeId = null; syncInput(); setStatus('点击画布添加矩形'); draw(); });
-                document.getElementById('addTriBtn').addEventListener('click', () => { activeTool = 'tri'; resetToolHighlight(); pendingConnectFromId = null; selectedShapeId = null; syncInput(); setStatus('点击画布添加三角形'); draw(); });
+                
+                // 左侧按钮点击：如果已有选中的形状，则替换类型；否则激活工具以待新建
+                document.getElementById('addRectBtn').addEventListener('click', () => { 
+                    if (selectedShapeId) {
+                        getShapeById(selectedShapeId).type = 'rect';
+                        setStatus('已更改为矩形'); draw();
+                    } else {
+                        activeTool = 'rect'; resetToolHighlight(); pendingConnectFromId = null; syncInput(); setStatus('点击画布添加矩形'); draw();
+                    }
+                });
+                document.getElementById('addTriBtn').addEventListener('click', () => { 
+                    if (selectedShapeId) {
+                        getShapeById(selectedShapeId).type = 'tri';
+                        setStatus('已更改为三角形'); draw();
+                    } else {
+                        activeTool = 'tri'; resetToolHighlight(); pendingConnectFromId = null; syncInput(); setStatus('点击画布添加三角形'); draw();
+                    }
+                });
+                document.getElementById('addCircleBtn').addEventListener('click', () => { 
+                    if (selectedShapeId) {
+                        getShapeById(selectedShapeId).type = 'circle';
+                        setStatus('已更改为圆形'); draw();
+                    } else {
+                        activeTool = 'circle'; resetToolHighlight(); pendingConnectFromId = null; syncInput(); setStatus('点击画布添加圆形'); draw();
+                    }
+                });
+                
                 document.getElementById('addArrowBtn').addEventListener('click', () => { activeTool = 'arrow'; resetToolHighlight(); pendingConnectFromId = null; selectedShapeId = null; syncInput(); setStatus('点击两个形状添加箭头'); draw(); });
                 document.getElementById('addEqualBtn').addEventListener('click', () => { activeTool = 'equal'; resetToolHighlight(); pendingConnectFromId = null; selectedShapeId = null; syncInput(); setStatus('点击两个形状添加等号'); draw(); });
                 document.getElementById('autoLayoutBtn').addEventListener('click', () => { performLayout(); setStatus('智能分层排版完成'); });
