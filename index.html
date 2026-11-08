@@ -8,11 +8,11 @@
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; font-family: system-ui, 'Segoe UI', sans-serif; }
         body { display: flex; height: 100vh; background: #f5f3f0; overflow: hidden; }
         .sidebar {
-            width: 320px; background: #efeae3; border-right: 2px solid #c9b9a8;
+            width: 340px; background: #efeae3; border-right: 2px solid #c9b9a8;
             display: flex; flex-direction: column; padding: 18px 14px; gap: 10px;
             box-shadow: 2px 0 8px rgba(0,0,0,0.05); z-index: 10; overflow-y: auto;
         }
-        .sidebar h2 { font-size: 1.15rem; font-weight: 600; color: #3e2f1f; padding-bottom: 6px; border-bottom: 2px solid #c9b9a8; display: flex; align-items: center; gap: 6px; }
+        .sidebar h2 { font-size: 1.15rem; font-weight: 600; color: #3e2f1f; padding-bottom: 6px; border-bottom: 2px solid #c9b9a8; display: flex; align-items: center; justify-content: space-between; }
         .tool-group { display: flex; flex-direction: column; gap: 6px; }
         .tool-group p { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: #7a6a5a; margin-top: 4px; font-weight: 600; }
         .btn {
@@ -31,32 +31,49 @@
         .info-badge { margin-top: auto; font-size: 0.7rem; color: #7a6a5a; background: #e6ddd2; padding: 8px 10px; border-radius: 8px; line-height: 1.4; border: 1px solid #cbb9a6; }
         .copyright { font-size: 0.75rem; color: #a09383; text-align: center; margin-top: 10px; font-weight: 500; letter-spacing: 0.5px; }
         
-        .canvas-container { flex: 1; position: relative; background: #f5f3f0; overflow: auto; display: flex; }
-        canvas { display: block; background: #fefcf9; box-shadow: inset 0 0 10px rgba(0,0,0,0.05); }
+        .canvas-container { flex: 1; position: relative; background: #f5f3f0; overflow: hidden; }
+        canvas { display: block; position: absolute; top: 0; left: 0; transform-origin: 0 0; background: #fefcf9; box-shadow: 0 0 20px rgba(0,0,0,0.05); cursor: grab; }
+        canvas:active { cursor: grabbing; }
+        canvas.selecting { cursor: default; }
+        
         .status-bar {
-            position: fixed; bottom: 16px; right: 20px; background: #3e2f1fdd; color: #f0e8de;
+            position: absolute; bottom: 16px; right: 20px; background: #3e2f1fdd; color: #f0e8de;
             padding: 6px 16px; border-radius: 30px; font-size: 0.8rem; backdrop-filter: blur(4px);
             pointer-events: none; letter-spacing: 0.3px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); z-index: 100;
         }
-        
+        .zoom-btn {
+            position: absolute; bottom: 16px; left: 16px; z-index: 100;
+            background: #fffcf7; border: 2px solid #b7a48f; border-radius: 10px;
+            padding: 6px 12px; font-size: 0.8rem; font-weight: bold; color: #3e2f1f;
+            cursor: pointer; box-shadow: 0 2px 0 #b7a48f;
+        }
+        .zoom-btn:hover { background: #f3ede5; }
+
         .input-group { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
-        .input-group input, .input-group textarea {
+        .input-group input, .input-group textarea, .input-group select {
             padding: 8px; border: 2px solid #b7a48f; border-radius: 8px; font-size: 0.9rem;
             background: #fffcf7; color: #3e2f1f; outline: none; transition: border-color 0.2s;
             font-family: monospace;
         }
         .input-group textarea { resize: vertical; min-height: 80px; }
-        .input-group input:focus, .input-group textarea:focus { border-color: #b85e2b; }
+        .input-group input:focus, .input-group textarea:focus, .input-group select:focus { border-color: #b85e2b; }
         .input-group input:disabled { background: #e8e0d6; color: #9b8a78; cursor: not-allowed; }
+        .row { display: flex; gap: 6px; align-items: center; }
+        .row input[type="number"] { width: 70px; font-weight: bold; text-align: center; }
+        .row span { font-size: 0.85rem; color: #7a6a5a; }
     </style>
 </head>
 <body>
     <div class="sidebar">
-        <h2><i></i> 考古系络图</h2>
+        <h2><i></i> 考古系络图 <span style="font-size:0.6rem; color:#9b8a78; font-weight:normal;">滚轮缩放 | 空白处拖拽平移 | Shift+拖拽框选</span></h2>
         
         <div class="input-group">
             <p>文本一键生成</p>
-            <textarea id="bulkInput" placeholder="示例：&#10;1-2-3-4-5-6&#10;2-4&#10;2-5&#10;2-H1-3&#10;2-G2-3&#10;2-F1-4"></textarea>
+            <textarea id="bulkInput" placeholder="示例：&#10;1-2-3-4-5-6&#10;2-4&#10;2-H1-3&#10;2-G2-3"></textarea>
+            <div class="row">
+                <span>默认字号:</span>
+                <input type="number" id="defaultFontSize" value="24" min="10" max="60">
+            </div>
             <button class="btn btn-small" id="generateBtn" style="justify-content:center;"> 生成（后请手动拖拽调整）</button>
         </div>
 
@@ -70,12 +87,20 @@
 
         <div class="input-group">
             <p>编辑文字</p>
-            <input type="text" id="labelInput" placeholder="选中形状后输入..." disabled>
+            <input type="text" id="labelInput" placeholder="选中单个形状后输入..." disabled>
+        </div>
+
+        <div class="input-group">
+            <p>修改字号 (按Shift多选)</p>
+            <div class="row">
+                <input type="number" id="fontSizeInput" placeholder="字号" min="10" max="60" disabled>
+                <button class="btn btn-small" id="applyFontSizeBtn" disabled>应用</button>
+            </div>
         </div>
 
         <div class="separator"></div>
         <div class="tool-group">
-            <p>层位关系</p>
+            <p>添加层位关系</p>
             <button class="btn" id="addArrowBtn"><span class="icon">→</span> 叠压/打破</button>
             <button class="btn" id="addEqualBtn"><span class="icon">＝</span> 同时/相等</button>
         </div>
@@ -83,9 +108,9 @@
         <div class="separator"></div>
         <div class="tool-group">
             <p>操作与导出</p>
-            <button class="btn btn-small" id="deleteShapeBtn"><span class="icon">🗑️</span> 删除形状</button>
+            <button class="btn btn-small" id="deleteShapeBtn"><span class="icon">🗑️</span> 删除选中形状</button>
             <button class="btn btn-small btn-danger" id="deleteConnectionBtn"><span class="icon">🔗</span> 删除连线</button>
-            <button class="btn btn-small" id="autoLayoutBtn"><span class="icon">⊞</span> 智能排版（不太智能）</button>
+            <button class="btn btn-small" id="autoLayoutBtn"><span class="icon">⊞</span> 更新排版</button>
             <button class="btn btn-small" id="exportBtn" style="margin-top:8px; background:#e2f0d9; border-color:#7a9e6b; box-shadow:0 2px 0 #7a9e6b; color:#2e4d22;"><span class="icon">📥</span> 导出黑白PNG</button>
             <a id="downloadFallback" style="display:none; text-align:center; font-size:0.75rem; color:#7a9e6b; margin-top:4px; text-decoration:underline;">⚠️ 点击此处保存图片</a>
             <button class="btn btn-small" id="clearCanvasBtn" style="margin-top:4px;"><span class="icon">🧹</span> 清空画布</button>
@@ -96,6 +121,7 @@
 
     <div class="canvas-container" id="canvasContainer">
         <canvas id="mainCanvas"></canvas>
+        <button class="zoom-btn" id="fitViewBtn">适应屏幕</button>
         <div class="status-bar" id="statusBar">就绪</div>
     </div>
 
@@ -106,34 +132,72 @@
             const ctx = canvas.getContext('2d');
             const statusBar = document.getElementById('statusBar');
             const labelInput = document.getElementById('labelInput');
+            const fontSizeInput = document.getElementById('fontSizeInput');
+            const applyFontSizeBtn = document.getElementById('applyFontSizeBtn');
+            const defaultFontSizeInput = document.getElementById('defaultFontSize');
             const bulkInput = document.getElementById('bulkInput');
 
             let shapes = [];
             let connections = [];
-            let selectedShapeId = null;
+            let selectedShapeIds = new Set(); 
             let activeTool = 'select';
             let pendingConnectFromId = null;
-            let canvasWidth = 1200, canvasHeight = 800; 
+            
+            const LOGICAL_W = 2500;
+            const LOGICAL_H = 2000;
+            canvas.width = LOGICAL_W;
+            canvas.height = LOGICAL_H;
+            
             const GRID_SIZE = 40;
             const DEFAULT_W = 80, DEFAULT_H = 60; 
-            let isDragging = false;
+            
+            // 交互状态
+            let isDraggingShape = false;
+            let isPanning = false;
+            let isBoxSelecting = false; // 框选状态
+            let lastMouseX = 0, lastMouseY = 0;
+            let dragStartX = 0, dragStartY = 0; 
             let dragOffsetX = 0, dragOffsetY = 0;
+            let clickThreshold = 3; 
+            let isActuallyDragging = false; 
+            
+            // 框选范围
+            let selectBox = { x1: 0, y1: 0, x2: 0, y2: 0 };
+
+            // 视图状态
+            let scale = 1;
+            let panX = 0, panY = 0;
 
             function generateId() { return Date.now() + '-' + Math.random().toString(36).substr(2, 9); }
             function getShapeById(id) { return shapes.find(s => s.id === id) || null; }
             function setStatus(t) { statusBar.textContent = t || '就绪'; }
             
             function syncInput() {
-                if (selectedShapeId) {
-                    const shape = getShapeById(selectedShapeId);
-                    if (shape) {
-                        labelInput.disabled = false;
-                        labelInput.value = shape.label || '';
-                        return;
-                    }
+                if (selectedShapeIds.size === 1) {
+                    const shape = getShapeById([...selectedShapeIds][0]);
+                    labelInput.disabled = false;
+                    labelInput.value = shape ? (shape.label || '') : '';
+                    labelInput.placeholder = "输入文字...";
+                } else {
+                    labelInput.disabled = true;
+                    labelInput.value = '';
+                    labelInput.placeholder = selectedShapeIds.size > 1 ? "多选状态下不支持改字" : "选中单个形状后输入...";
                 }
-                labelInput.disabled = true;
-                labelInput.value = '';
+
+                if (selectedShapeIds.size > 0) {
+                    fontSizeInput.disabled = false;
+                    applyFontSizeBtn.disabled = false;
+                    if (selectedShapeIds.size === 1) {
+                        const shape = getShapeById([...selectedShapeIds][0]);
+                        fontSizeInput.value = shape ? (shape.fontSize || 24) : '';
+                    } else {
+                        fontSizeInput.value = ''; 
+                    }
+                } else {
+                    fontSizeInput.disabled = true;
+                    fontSizeInput.value = '';
+                    applyFontSizeBtn.disabled = true;
+                }
             }
 
             function resetToolHighlight() {
@@ -146,27 +210,46 @@
                 if (activeTool === 'deleteConn') document.getElementById('deleteConnectionBtn').classList.add('active');
             }
 
-            function updateCanvasSize() {
-                let maxX = 800, maxY = 600;
-                shapes.forEach(s => {
-                    if (s.x + s.w + 200 > maxX) maxX = s.x + s.w + 200;
-                    if (s.y + s.h + 200 > maxY) maxY = s.y + s.h + 200;
-                });
-                
-                const targetWidth = Math.max(maxX, canvasContainer.clientWidth);
-                const targetHeight = Math.max(maxY, canvasContainer.clientHeight);
-
-                if (targetWidth > canvasWidth || targetHeight > canvasHeight ||
-                    (canvasWidth - targetWidth > 300) || (canvasHeight - targetHeight > 300)) {
-                    
-                    canvasWidth = targetWidth;
-                    canvasHeight = targetHeight;
-                    if (canvas.width !== canvasWidth || canvas.height !== canvasHeight) {
-                        canvas.width = canvasWidth;
-                        canvas.height = canvasHeight;
-                    }
+            function applyTransform() {
+                canvas.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+                if (activeTool === 'select') {
+                    canvas.classList.add('selecting');
+                } else {
+                    canvas.classList.remove('selecting');
                 }
-                draw();
+            }
+
+            function fitView() {
+                if (shapes.length === 0) {
+                    panX = 0; panY = 0; scale = 1;
+                    applyTransform();
+                    return;
+                }
+
+                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                shapes.forEach(s => {
+                    if (s.x < minX) minX = s.x;
+                    if (s.y < minY) minY = s.y;
+                    if (s.x + s.w > maxX) maxX = s.x + s.w;
+                    if (s.y + s.h > maxY) maxY = s.y + s.h;
+                });
+
+                const padding = 100;
+                minX -= padding; minY -= padding;
+                maxX += padding; maxY += padding;
+
+                const containerW = canvasContainer.clientWidth;
+                const containerH = canvasContainer.clientHeight;
+
+                const scaleX = containerW / (maxX - minX);
+                const scaleY = containerH / (maxY - minY);
+                
+                scale = Math.min(scaleX, scaleY, 1.2);
+
+                panX = (containerW - (maxX - minX) * scale) / 2 - minX * scale;
+                panY = (containerH - (maxY - minY) * scale) / 2 - minY * scale;
+
+                applyTransform();
             }
 
             // ================= 绘图核心 =================
@@ -174,25 +257,25 @@
                 const colors = isExport ? {
                     bg: '#ffffff', grid: null, shapeFill: '#ffffff', 
                     shapeStroke: '#000000', text: '#000000',
-                    arrow: '#000000', equal: '#000000', select: 'transparent'
+                    arrow: '#000000', equal: '#000000', select: 'transparent', boxSelect: 'transparent'
                 } : {
                     bg: '#fefcf9', grid: ['#d6cbbd', '#e8e0d6'], shapeFill: '#fffcf7', 
                     shapeStroke: '#5e4d3c', text: '#2b1f14',
-                    arrow: '#b85e2b', equal: '#3e7e5c', select: '#b85e2b'
+                    arrow: '#b85e2b', equal: '#3e7e5c', select: '#b85e2b', boxSelect: '#3b82f6'
                 };
 
                 context.fillStyle = colors.bg;
-                context.fillRect(0, 0, canvasWidth, canvasHeight);
+                context.fillRect(0, 0, LOGICAL_W, LOGICAL_H);
 
                 if (!isExport && colors.grid) {
                     context.save();
-                    for (let x = 0; x <= canvasWidth; x += GRID_SIZE) {
-                        context.beginPath(); context.moveTo(x, 0); context.lineTo(x, canvasHeight);
+                    for (let x = 0; x <= LOGICAL_W; x += GRID_SIZE) {
+                        context.beginPath(); context.moveTo(x, 0); context.lineTo(x, LOGICAL_H);
                         context.strokeStyle = (x % (GRID_SIZE*2)===0) ? colors.grid[0] : colors.grid[1];
                         context.lineWidth = 0.8; context.stroke();
                     }
-                    for (let y = 0; y <= canvasHeight; y += GRID_SIZE) {
-                        context.beginPath(); context.moveTo(0, y); context.lineTo(canvasWidth, y);
+                    for (let y = 0; y <= LOGICAL_H; y += GRID_SIZE) {
+                        context.beginPath(); context.moveTo(0, y); context.lineTo(LOGICAL_W, y);
                         context.strokeStyle = (y % (GRID_SIZE*2)===0) ? colors.grid[0] : colors.grid[1];
                         context.lineWidth = 0.8; context.stroke();
                     }
@@ -232,7 +315,6 @@
                 });
 
                 const arrows = connections.filter(c => c.type === 'arrow');
-                
                 const fromMap = new Map(); 
                 const toMap = new Map();   
                 arrows.forEach(c => {
@@ -308,26 +390,21 @@
                             });
                             intersections = [...new Set(intersections)].sort((a,b) => a-b);
 
-                            // ======== 此处替换为圆弧拱形 ========
                             let startX = fromCenterX;
                             if (intersections.length > 0) {
                                 intersections.forEach(ix => {
                                     const bridgeRadius = 8;
-                                    // 直线到桥头
                                     context.beginPath(); context.moveTo(startX, laneY); context.lineTo(ix - bridgeRadius, laneY); context.stroke();
-                                    // 画平滑的圆弧半圆
                                     context.beginPath(); 
                                     context.moveTo(ix - bridgeRadius, laneY); 
                                     context.arc(ix, laneY, bridgeRadius, Math.PI, 0, true); 
                                     context.stroke();
-                                    // 更新起点
                                     startX = ix + bridgeRadius;
                                 });
                                 context.beginPath(); context.moveTo(startX, laneY); context.lineTo(targetTopX, laneY); context.stroke();
                             } else {
                                 context.beginPath(); context.moveTo(fromCenterX, laneY); context.lineTo(targetTopX, laneY); context.stroke();
                             }
-                            // ===================================
 
                             const finalY = (toJY && laneY < toJY) ? toJY : targetTopY;
                             context.beginPath(); context.moveTo(targetTopX, laneY); context.lineTo(targetTopX, finalY); context.stroke();
@@ -388,7 +465,7 @@
                     context.restore();
                 });
 
-                // ================= 画形状 =================
+                // ================= 画形状与文字 =================
                 shapes.forEach(shape => {
                     context.save();
                     const cx = shape.x + shape.w/2, cy = shape.y + shape.h/2;
@@ -407,17 +484,25 @@
                     }
                     
                     context.fillStyle = colors.shapeFill; context.fill();
-                    context.strokeStyle = (selectedShapeId === shape.id && !isExport) ? colors.select : colors.shapeStroke;
-                    context.lineWidth = (selectedShapeId === shape.id && !isExport) ? 2.5 : 1.8; 
+                    const isSelected = selectedShapeIds.has(shape.id);
+                    context.strokeStyle = (isSelected && !isExport) ? colors.select : colors.shapeStroke;
+                    context.lineWidth = (isSelected && !isExport) ? 2.5 : 1.8; 
                     context.stroke();
 
-                    context.font = 'bold 16px system-ui, sans-serif';
-                    context.fillStyle = colors.text; context.textAlign = 'center'; context.textBaseline = 'middle';
+                    const currentFontSize = shape.fontSize || 24;
+                    context.font = `bold ${currentFontSize}px "Microsoft YaHei", system-ui, sans-serif`;
+                    context.fillStyle = colors.text; 
+                    context.textAlign = 'center'; 
+                    context.textBaseline = 'middle';
+                    
                     context.save(); context.translate(cx, cy); context.rotate(shape.rotation);
-                    if (shape.label) context.fillText(shape.label, 0, shape.type === 'tri' ? 6 : 0);
+                    if (shape.label) {
+                        const textY = shape.type === 'tri' ? currentFontSize * 0.3 : 0;
+                        context.fillText(shape.label, 0, textY);
+                    }
                     context.restore();
 
-                    if (selectedShapeId === shape.id && !isExport) {
+                    if (isSelected && !isExport) {
                         context.save(); context.translate(cx, cy); context.rotate(shape.rotation);
                         context.strokeStyle = colors.select; context.lineWidth = 1.5; context.setLineDash([4,3]);
                         context.strokeRect(-shape.w/2-6, -shape.h/2-6, shape.w+12, shape.h+12);
@@ -425,9 +510,35 @@
                     }
                     context.restore();
                 });
+
+                // ================= 画框选矩形 =================
+                if (isBoxSelecting && !isExport) {
+                    context.save();
+                    context.fillStyle = 'rgba(59, 130, 246, 0.1)'; // 浅蓝色半透明
+                    context.strokeStyle = colors.boxSelect;
+                    context.lineWidth = 1.5;
+                    context.setLineDash([5, 5]);
+                    const bx = Math.min(selectBox.x1, selectBox.x2);
+                    const by = Math.min(selectBox.y1, selectBox.y2);
+                    const bw = Math.abs(selectBox.x2 - selectBox.x1);
+                    const bh = Math.abs(selectBox.y2 - selectBox.y1);
+                    context.fillRect(bx, by, bw, bh);
+                    context.strokeRect(bx, by, bw, bh);
+                    context.restore();
+                }
             }
 
             function draw() { render(ctx, false); }
+
+            // ================= 核心修复：精准坐标转换 =================
+            function getMousePos(e) {
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = LOGICAL_W / rect.width;
+                const scaleY = LOGICAL_H / rect.height;
+                const x = (e.clientX - rect.left) * scaleX;
+                const y = (e.clientY - rect.top) * scaleY;
+                return { x, y };
+            }
 
             // ================= 智能排版 =================
             function performLayout() {
@@ -506,7 +617,7 @@
                         totalWidth += (groupShapes.length - 1) * (DEFAULT_W + intraGroupSpacing) + nodeW;
                     });
                     totalWidth += (roots.length - 1) * itemSpacingX;
-                    let currentX = Math.max(40, (canvasWidth - totalWidth) / 2);
+                    let currentX = Math.max(40, (LOGICAL_W - totalWidth) / 2);
                     
                     roots.forEach(root => {
                         const shapeIds = groups.get(root);
@@ -521,7 +632,8 @@
                     });
                 });
                 
-                updateCanvasSize();
+                draw();
+                fitView();
             }
 
             function getShapeAtPoint(px, py) {
@@ -564,11 +676,23 @@
                 return null;
             }
 
+            // 判断形状是否在框内
+            function isShapeInBox(shape, box) {
+                const minX = Math.min(box.x1, box.x2);
+                const maxX = Math.max(box.x1, box.x2);
+                const minY = Math.min(box.y1, box.y2);
+                const maxY = Math.max(box.y1, box.y2);
+                const cx = shape.x + shape.w/2;
+                const cy = shape.y + shape.h/2;
+                return cx >= minX && cx <= maxX && cy >= minY && cy <= maxY;
+            }
+
             // ================= 文本解析 =================
             function generateFromText() {
                 const text = bulkInput.value.trim();
                 if (!text) { setStatus('请输入文本'); return; }
 
+                const globalFontSize = parseInt(defaultFontSizeInput.value) || 24;
                 const rawLines = text.split(/[\n,，;；]/);
                 const nodeMap = new Map(); const edges = []; const equalPairs = [];
                 const normalize = (str) => str.replace(/->|→|—|－/g, '-');
@@ -578,22 +702,16 @@
                     parts.forEach(p => {
                         const label = p.trim();
                         if (label && !nodeMap.has(label)) {
-                            let type = 'rect'; // 默认矩形
+                            let type = 'rect'; 
+                            if (/^\d+$/.test(label) || /^[①-⑳]$/.test(label)) type = 'circle';
+                            else if (/^[HKG]\d+$/i.test(label)) type = 'tri';
+                            else if (/^[FQ]\d+$/i.test(label)) type = 'rect';
                             
-                            // 规则1：纯数字（1 或 ①），识别为圆形
-                            if (/^\d+$/.test(label) || /^[①-⑳]$/.test(label)) {
-                                type = 'circle';
-                            }
-                            // 规则2：H、K、G 开头+数字，识别为三角形
-                            else if (/^[HKG]\d+$/i.test(label)) {
-                                type = 'tri';
-                            }
-                            // 规则3：F、Q 开头+数字，识别为方形
-                            else if (/^[FQ]\d+$/i.test(label)) {
-                                type = 'rect';
-                            }
-                            
-                            nodeMap.set(label, { id: generateId(), type: type, x: 0, y: 0, w: DEFAULT_W, h: DEFAULT_H, rotation: 0, label: label });
+                            nodeMap.set(label, { 
+                                id: generateId(), type: type, 
+                                x: 0, y: 0, w: DEFAULT_W, h: DEFAULT_H, 
+                                rotation: 0, label: label, fontSize: globalFontSize 
+                            });
                         }
                     });
                 });
@@ -618,16 +736,16 @@
 
                 shapes = Array.from(nodeMap.values());
                 connections = [...edges, ...equalPairs];
-                selectedShapeId = null; syncInput();
-                performLayout(); draw();
+                selectedShapeIds.clear(); syncInput();
+                performLayout();
                 setStatus(`已生成，共 ${shapes.length} 形状，${connections.length} 连线`);
             }
 
             // ================= 事件处理 =================
             function handleCanvasClick(e) {
-                const rect = canvas.getBoundingClientRect();
-                const mx = (e.clientX - rect.left) * (canvas.width/rect.width);
-                const my = (e.clientY - rect.top) * (canvas.height/rect.height);
+                if (isActuallyDragging) return;
+
+                const { x: mx, y: my } = getMousePos(e);
 
                 if (activeTool === 'deleteConn') {
                     const conn = getConnectionAtPoint(mx, my);
@@ -635,14 +753,14 @@
                         connections = connections.filter(c => c.id !== conn.id);
                         setStatus('已删除连接');
                         draw();
-                    } else setStatus('未点到连线，请再靠近一点试试');
+                    } else setStatus('未点到连线');
                     activeTool = 'select'; resetToolHighlight();
                     return;
                 }
 
                 if (activeTool === 'rect' || activeTool === 'tri' || activeTool === 'circle') {
-                    if (selectedShapeId) {
-                        const shape = getShapeById(selectedShapeId);
+                    if (selectedShapeIds.size === 1) {
+                        const shape = getShapeById([...selectedShapeIds][0]);
                         if (shape) {
                             shape.type = activeTool;
                             setStatus(`已将选中形状更改为${activeTool === 'rect' ? '矩形' : activeTool === 'tri' ? '三角形' : '圆形'}`);
@@ -650,11 +768,19 @@
                             return;
                         }
                     }
-                    const shape = { id: generateId(), type: activeTool, x: Math.round((mx - DEFAULT_W/2) / 10) * 10, y: Math.round((my - DEFAULT_H/2) / 10) * 10, w: DEFAULT_W, h: DEFAULT_H, rotation: 0, label: '' };
-                    shapes.push(shape); selectedShapeId = shape.id; syncInput();
+                    const shape = { 
+                        id: generateId(), type: activeTool, 
+                        x: Math.round((mx - DEFAULT_W/2) / 10) * 10, 
+                        y: Math.round((my - DEFAULT_H/2) / 10) * 10, 
+                        w: DEFAULT_W, h: DEFAULT_H, rotation: 0, label: '',
+                        fontSize: parseInt(defaultFontSizeInput.value) || 24
+                    };
+                    shapes.push(shape); 
+                    selectedShapeIds.clear(); selectedShapeIds.add(shape.id); 
+                    syncInput();
                     setStatus(`已添加${activeTool === 'rect' ? '矩形' : activeTool === 'tri' ? '三角形' : '圆形'}`);
                     activeTool = 'select'; resetToolHighlight(); 
-                    updateCanvasSize();
+                    draw();
                     return;
                 }
 
@@ -662,12 +788,12 @@
                     const shape = getShapeAtPoint(mx, my);
                     if (!shape) { if (pendingConnectFromId) { pendingConnectFromId = null; setStatus('已取消'); draw(); } return; }
                     if (!pendingConnectFromId) {
-                        pendingConnectFromId = shape.id; selectedShapeId = shape.id; syncInput();
+                        pendingConnectFromId = shape.id; selectedShapeIds.clear(); selectedShapeIds.add(shape.id); syncInput();
                         setStatus('已选起点，请点击目标形状'); draw();
                     } else {
-                        if (pendingConnectFromId === shape.id) { setStatus('不能连接同一个'); pendingConnectFromId = null; selectedShapeId = null; syncInput(); draw(); return; }
+                        if (pendingConnectFromId === shape.id) { setStatus('不能连接同一个'); pendingConnectFromId = null; selectedShapeIds.clear(); syncInput(); draw(); return; }
                         connections.push({ id: generateId(), fromId: pendingConnectFromId, toId: shape.id, type: activeTool === 'arrow' ? 'arrow' : 'equal' });
-                        pendingConnectFromId = null; selectedShapeId = null; syncInput();
+                        pendingConnectFromId = null; selectedShapeIds.clear(); syncInput();
                         setStatus(`已添加${activeTool === 'arrow' ? '箭头' : '等号'}`);
                         activeTool = 'select'; resetToolHighlight(); draw();
                     }
@@ -676,53 +802,191 @@
 
                 if (activeTool === 'select') {
                     const shape = getShapeAtPoint(mx, my);
-                    selectedShapeId = shape ? shape.id : null;
-                    syncInput(); setStatus(shape ? `选中形状` : '未选中'); draw();
+                    const isShift = e.shiftKey;
+                    
+                    if (shape) {
+                        if (isShift) {
+                            if (selectedShapeIds.has(shape.id)) selectedShapeIds.delete(shape.id);
+                            else selectedShapeIds.add(shape.id);
+                        } else {
+                            selectedShapeIds.clear();
+                            selectedShapeIds.add(shape.id);
+                        }
+                        setStatus(`选中 ${selectedShapeIds.size} 个形状`);
+                    } else {
+                        if (!isShift) selectedShapeIds.clear();
+                        setStatus('未选中');
+                    }
+                    syncInput(); draw();
                 }
             }
 
             function handleMouseDown(e) {
-                if (activeTool !== 'select') return;
-                const rect = canvas.getBoundingClientRect();
-                const mx = (e.clientX - rect.left) * (canvas.width/rect.width);
-                const my = (e.clientY - rect.top) * (canvas.height/rect.height);
+                // 处理中键拖拽平移
+                if (e.button === 1) {
+                    isPanning = true;
+                    lastMouseX = e.clientX;
+                    lastMouseY = e.clientY;
+                    canvas.style.cursor = 'grabbing';
+                    return;
+                }
+
+                if (e.button !== 0) return; 
+
+                const { x: mx, y: my } = getMousePos(e);
                 const shape = getShapeAtPoint(mx, my);
-                if (shape) {
-                    selectedShapeId = shape.id; syncInput();
-                    isDragging = true; dragOffsetX = mx - shape.x; dragOffsetY = my - shape.y; draw();
-                } else { selectedShapeId = null; syncInput(); isDragging = false; draw(); }
-            }
-            function handleMouseMove(e) {
-                if (!isDragging || !selectedShapeId) return;
-                const rect = canvas.getBoundingClientRect();
-                const mx = (e.clientX - rect.left) * (canvas.width/rect.width);
-                const my = (e.clientY - rect.top) * (canvas.height/rect.height);
-                const shape = getShapeById(selectedShapeId);
-                if (shape) {
-                    shape.x = Math.round((mx - dragOffsetX) / 10) * 10;
-                    shape.y = Math.round((my - dragOffsetY) / 10) * 10;
-                    updateCanvasSize();
+
+                dragStartX = e.clientX;
+                dragStartY = e.clientY;
+                isActuallyDragging = false;
+
+                if (activeTool === 'select' && shape && !e.shiftKey) {
+                    // 点中形状且没按Shift：直接准备拖拽形状
+                    if (!selectedShapeIds.has(shape.id)) {
+                        selectedShapeIds.clear();
+                        selectedShapeIds.add(shape.id);
+                        syncInput();
+                    }
+                    isDraggingShape = true; 
+                    dragOffsetX = mx; 
+                    dragOffsetY = my; 
+                    draw();
+                } else if (e.shiftKey && activeTool === 'select') {
+                    // 按Shift在空白处或形状上拖拽：准备框选
+                    isBoxSelecting = true;
+                    selectBox = { x1: mx, y1: my, x2: mx, y2: my };
+                    if (!e.shiftKey) selectedShapeIds.clear(); // 如果没按Shift点空白，清空
+                    draw();
+                } else {
+                    // 点中空白处：平移画布
+                    isPanning = true;
+                    lastMouseX = e.clientX;
+                    lastMouseY = e.clientY;
+                    canvas.style.cursor = 'grabbing';
                 }
             }
-            function handleMouseUp() { if (isDragging) { isDragging = false; draw(); } }
+
+            function handleMouseMove(e) {
+                const dist = Math.hypot(e.clientX - dragStartX, e.clientY - dragStartY);
+                if (dist > clickThreshold) isActuallyDragging = true;
+
+                if (isPanning && isActuallyDragging) {
+                    panX += e.clientX - lastMouseX;
+                    panY += e.clientY - lastMouseY;
+                    lastMouseX = e.clientX;
+                    lastMouseY = e.clientY;
+                    applyTransform();
+                    return;
+                }
+
+                if (isBoxSelecting) {
+                    const { x: mx, y: my } = getMousePos(e);
+                    selectBox.x2 = mx;
+                    selectBox.y2 = my;
+                    draw(); // 实时刷新框选矩形
+                    return;
+                }
+
+                if (!isDraggingShape || selectedShapeIds.size === 0 || !isActuallyDragging) return;
+                
+                const { x: mx, y: my } = getMousePos(e);
+                const dx = mx - dragOffsetX;
+                const dy = my - dragOffsetY;
+                
+                selectedShapeIds.forEach(id => {
+                    const shape = getShapeById(id);
+                    if (shape) {
+                        shape.x += dx;
+                        shape.y += dy;
+                    }
+                });
+                
+                dragOffsetX = mx;
+                dragOffsetY = my;
+                draw();
+            }
+            
+            function handleMouseUp(e) {
+                if (isPanning) {
+                    isPanning = false;
+                    applyTransform();
+                }
+                if (isDraggingShape) { 
+                    isDraggingShape = false; 
+                    if (isActuallyDragging) {
+                        selectedShapeIds.forEach(id => {
+                            const shape = getShapeById(id);
+                            if (shape) {
+                                shape.x = Math.round(shape.x / 10) * 10;
+                                shape.y = Math.round(shape.y / 10) * 10;
+                            }
+                        });
+                        draw();
+                    }
+                }
+                if (isBoxSelecting) {
+                    isBoxSelecting = false;
+                    // 计算哪些形状被框住了
+                    const newlySelected = new Set();
+                    shapes.forEach(s => {
+                        if (isShapeInBox(s, selectBox)) {
+                            newlySelected.add(s.id);
+                        }
+                    });
+
+                    if (e.shiftKey) {
+                        // 如果按了Shift，就合并
+                        newlySelected.forEach(id => selectedShapeIds.add(id));
+                    } else {
+                        // 否则替换
+                        selectedShapeIds.clear();
+                        newlySelected.forEach(id => selectedShapeIds.add(id));
+                    }
+                    
+                    syncInput(); 
+                    draw();
+                    setStatus(`框选了 ${selectedShapeIds.size} 个形状`);
+                }
+            }
+
+            function handleWheel(e) {
+                e.preventDefault();
+                const zoomSensitivity = 0.001;
+                const delta = -e.deltaY * zoomSensitivity;
+                const newScale = Math.min(Math.max(0.2, scale * (1 + delta)), 5);
+                
+                const mouseX = e.clientX;
+                const mouseY = e.clientY;
+
+                panX = mouseX - (mouseX - panX) * (newScale / scale);
+                panY = mouseY - (mouseY - panY) * (newScale / scale);
+                
+                scale = newScale;
+                applyTransform();
+            }
 
             function deleteSelectedShape() {
-                if (!selectedShapeId) { setStatus('请先选中形状'); return; }
-                shapes = shapes.filter(s => s.id !== selectedShapeId);
-                connections = connections.filter(c => c.fromId !== selectedShapeId && c.toId !== selectedShapeId);
-                selectedShapeId = null; syncInput(); updateCanvasSize(); setStatus('已删除形状及相关连接');
+                if (selectedShapeIds.size === 0) { setStatus('请先选中形状'); return; }
+                shapes = shapes.filter(s => !selectedShapeIds.has(s.id));
+                connections = connections.filter(c => !selectedShapeIds.has(c.fromId) && !selectedShapeIds.has(c.toId));
+                selectedShapeIds.clear(); syncInput(); draw(); setStatus('已删除选中形状及相关连接');
             }
 
             function handleKeyDown(e) {
-                if (e.key === 'Delete' || e.key === 'Backspace') { if (selectedShapeId) { e.preventDefault(); deleteSelectedShape(); } }
-                if (e.key === 'Escape') { selectedShapeId = null; pendingConnectFromId = null; syncInput(); activeTool = 'select'; resetToolHighlight(); draw(); setStatus('已取消'); }
+                if (e.key === 'Delete' || e.key === 'Backspace') { 
+                    if (selectedShapeIds.size > 0) { e.preventDefault(); deleteSelectedShape(); } 
+                }
+                if (e.key === 'Escape') { 
+                    selectedShapeIds.clear(); pendingConnectFromId = null; 
+                    syncInput(); activeTool = 'select'; resetToolHighlight(); draw(); setStatus('已取消'); 
+                }
             }
 
             // ================= 导出功能 =================
             function exportPNG() {
                 const exportCanvas = document.createElement('canvas');
-                exportCanvas.width = canvasWidth;
-                exportCanvas.height = canvasHeight;
+                exportCanvas.width = LOGICAL_W;
+                exportCanvas.height = LOGICAL_H;
                 const exportCtx = exportCanvas.getContext('2d');
                 render(exportCtx, true);
                 
@@ -762,59 +1026,74 @@
 
             // ================= 初始化 =================
             window.addEventListener('load', () => {
-                updateCanvasSize();
+                applyTransform();
+                draw();
+
                 canvas.addEventListener('click', handleCanvasClick);
                 canvas.addEventListener('mousedown', handleMouseDown);
-                canvas.addEventListener('mousemove', handleMouseMove);
+                window.addEventListener('mousemove', handleMouseMove);
                 window.addEventListener('mouseup', handleMouseUp);
                 window.addEventListener('keydown', handleKeyDown);
+                canvas.addEventListener('wheel', handleWheel, { passive: false });
+
+                document.getElementById('fitViewBtn').addEventListener('click', fitView);
 
                 labelInput.addEventListener('input', (e) => {
-                    if (selectedShapeId) {
-                        const shape = getShapeById(selectedShapeId);
+                    if (selectedShapeIds.size === 1) {
+                        const shape = getShapeById([...selectedShapeIds][0]);
                         if (shape) { shape.label = e.target.value; draw(); }
+                    }
+                });
+
+                applyFontSizeBtn.addEventListener('click', () => {
+                    const newSize = parseInt(fontSizeInput.value);
+                    if (!isNaN(newSize) && newSize >= 10 && selectedShapeIds.size > 0) {
+                        selectedShapeIds.forEach(id => {
+                            const shape = getShapeById(id);
+                            if (shape) shape.fontSize = newSize;
+                        });
+                        setStatus(`已将 ${selectedShapeIds.size} 个形状的字号改为 ${newSize}`);
+                        draw();
                     }
                 });
 
                 document.getElementById('generateBtn').addEventListener('click', generateFromText);
                 
                 document.getElementById('addRectBtn').addEventListener('click', () => { 
-                    if (selectedShapeId) {
-                        getShapeById(selectedShapeId).type = 'rect';
+                    if (selectedShapeIds.size === 1) {
+                        getShapeById([...selectedShapeIds][0]).type = 'rect';
                         setStatus('已更改为矩形'); draw();
                     } else {
-                        activeTool = 'rect'; resetToolHighlight(); pendingConnectFromId = null; syncInput(); setStatus('点击画布添加矩形'); draw();
+                        activeTool = 'rect'; resetToolHighlight(); pendingConnectFromId = null; selectedShapeIds.clear(); syncInput(); setStatus('点击画布添加矩形'); draw();
                     }
                 });
                 document.getElementById('addTriBtn').addEventListener('click', () => { 
-                    if (selectedShapeId) {
-                        getShapeById(selectedShapeId).type = 'tri';
+                    if (selectedShapeIds.size === 1) {
+                        getShapeById([...selectedShapeIds][0]).type = 'tri';
                         setStatus('已更改为三角形'); draw();
                     } else {
-                        activeTool = 'tri'; resetToolHighlight(); pendingConnectFromId = null; syncInput(); setStatus('点击画布添加三角形'); draw();
+                        activeTool = 'tri'; resetToolHighlight(); pendingConnectFromId = null; selectedShapeIds.clear(); syncInput(); setStatus('点击画布添加三角形'); draw();
                     }
                 });
                 document.getElementById('addCircleBtn').addEventListener('click', () => { 
-                    if (selectedShapeId) {
-                        getShapeById(selectedShapeId).type = 'circle';
+                    if (selectedShapeIds.size === 1) {
+                        getShapeById([...selectedShapeIds][0]).type = 'circle';
                         setStatus('已更改为圆形'); draw();
                     } else {
-                        activeTool = 'circle'; resetToolHighlight(); pendingConnectFromId = null; syncInput(); setStatus('点击画布添加圆形'); draw();
+                        activeTool = 'circle'; resetToolHighlight(); pendingConnectFromId = null; selectedShapeIds.clear(); syncInput(); setStatus('点击画布添加圆形'); draw();
                     }
                 });
                 
-                document.getElementById('addArrowBtn').addEventListener('click', () => { activeTool = 'arrow'; resetToolHighlight(); pendingConnectFromId = null; selectedShapeId = null; syncInput(); setStatus('点击两个形状添加箭头'); draw(); });
-                document.getElementById('addEqualBtn').addEventListener('click', () => { activeTool = 'equal'; resetToolHighlight(); pendingConnectFromId = null; selectedShapeId = null; syncInput(); setStatus('点击两个形状添加等号'); draw(); });
-                document.getElementById('autoLayoutBtn').addEventListener('click', () => { performLayout(); setStatus('智能分层排版完成'); });
+                document.getElementById('addArrowBtn').addEventListener('click', () => { activeTool = 'arrow'; resetToolHighlight(); pendingConnectFromId = null; selectedShapeIds.clear(); syncInput(); setStatus('点击两个形状添加箭头'); draw(); });
+                document.getElementById('addEqualBtn').addEventListener('click', () => { activeTool = 'equal'; resetToolHighlight(); pendingConnectFromId = null; selectedShapeIds.clear(); syncInput(); setStatus('点击两个形状添加等号'); draw(); });
+                document.getElementById('autoLayoutBtn').addEventListener('click', () => { performLayout(); setStatus('排版完成并适应屏幕'); });
                 document.getElementById('deleteShapeBtn').addEventListener('click', deleteSelectedShape);
-                document.getElementById('deleteConnectionBtn').addEventListener('click', () => { activeTool = 'deleteConn'; resetToolHighlight(); pendingConnectFromId = null; selectedShapeId = null; syncInput(); setStatus('请点击要删除的连接线'); draw(); });
+                document.getElementById('deleteConnectionBtn').addEventListener('click', () => { activeTool = 'deleteConn'; resetToolHighlight(); pendingConnectFromId = null; selectedShapeIds.clear(); syncInput(); setStatus('请点击要删除的连接线'); draw(); });
                 document.getElementById('exportBtn').addEventListener('click', exportPNG);
-                document.getElementById('clearCanvasBtn').addEventListener('click', () => { shapes = []; connections = []; selectedShapeId = null; syncInput(); updateCanvasSize(); setStatus('画布已清空'); });
+                document.getElementById('clearCanvasBtn').addEventListener('click', () => { shapes = []; connections = []; selectedShapeIds.clear(); syncInput(); draw(); fitView(); setStatus('画布已清空'); });
 
                 activeTool = 'select'; resetToolHighlight();
             });
-
-            window.addEventListener('resize', () => { updateCanvasSize(); });
         })();
     </script>
 </body>
